@@ -9,8 +9,15 @@
     {% endblock %}
 </head>
 <body>
+
+
 {#  url_for('static', filename='images/my.jpg') --> /static/images/my.jpg #}
     <img class="avatar" alt="Avatar" height="50" src="{{ url_for('static', filename='images/my.jpg') }}">
+
+{% for message in get_flashed_messages() %}
+	<div class="alert">{{ message }}</div>
+{% endfor %}
+
 <h2>{{ user.name }}'s Wathclist</h2>
 {# 导航条 #}
 <nav>

@@ -1,4 +1,4 @@
-from flask import Flask, redirect, abort, render_template
+from flask import Flask, redirect, abort, render_template,request, flash
 from flask import url_for
 from werkzeug.exceptions import HTTPException
 import os
@@ -17,7 +17,7 @@ else:
 
 app.config['SQLALCHEMY_DATABASE_URI'] = prefix + os.path.join(app.root_path,'data.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False # 关闭对模型修改的监控
-
+app.config['SECRET_KEY'] = '123'
 db = SQLAlchemy(app) # 初始化扩展，传入程序实例 app
 
 class User(db.Model):
@@ -38,14 +38,6 @@ def initdb(drop):
         db.drop_all()
     db.create_all()
     click.echo('Initialized database') #输出提示信息
-
-
-
-
-
-
-
-
 
 @app.cli.command()
 def forge():
@@ -76,15 +68,53 @@ def inject_user(): #函数名随意
     user = User.query.first()
     return {'user':user}
 
-@app.route('/')
+@app.route('/', methods=['GET', 'POST'])
 def index():
-    movies = Movie.query.all() # 读取所有电影
+    if request.method == 'POST': # 判断是否是 POST 请求
+        # 获取表单数据
+        title = request.form.get('title') # 传入表单对应输入字段的 name 值
+        year = request.form.get('year')
+        # 验证数据
+        if not title or not year or len(year) > 4 or len(title) > 60:
+            flash('Invalid input.')
+            return redirect(url_for('index'))
+        movie = Movie(title=title, year=year)
+        db.session.add(movie)
+        db.session.commit()
+        flash('Item Created.')
+        return redirect(url_for('index'))
+
+    movies = Movie.query.all()
     return render_template('index.html', movies=movies)
 
+@app.route('/movie/edit/<int:movie_id>', methods=['GET', 'POST'])
+def edit(movie_id):
+    movie = Movie.query.get_or_404(movie_id)
 
-@app.route('/user/<name>')
-def user_page():
-    return 'User Page'
+    if request.method == 'POST':
+        title = request.form['title']
+        year = request.form['year']
+
+        if not title or not year or len(year) > 4 or len(title) > 60:
+            flash('Invalid input.')
+            return redirect(url_for('edit', movie_id=movie_id))  # 重定向回对应的编辑页面
+
+        movie.title = title
+        movie.year = year
+        db.session.commit()
+        flash('Item Updated.')
+        return redirect(url_for('index'))
+    return render_template('edit.html', movie=movie)
+
+
+@app.route('/movie/delete/<int:movie_id>', methods=['POST'])
+def delete(movie_id):
+    movie = Movie.query.get_or_404(movie_id)
+    db.session.delete(movie)  # 删除对应的记录
+    db.session.commit() # 提交数据库会话
+    flash('Item Deleted')
+    return redirect(url_for('index'))
+
 
 @app.route('/test')
 def test_url_for():
@@ -99,11 +129,4 @@ def not_found(e): # 接受异常对象作为参数
     # 返回模板和状态码
     return render_template('404.html'), 404
 
-# @app.errorhandler(Exception)
-# def all_exception_handler(e):
-#     # 对于 HTTP 异常，返回自带的错误描述和状态码
-#     # 这些异常类在 Werkzeug 中定义，均继承 HTTPException 类
-#     if isinstance(e, HTTPException):
-#         return e.description, e.code
-#     # 一般异常
-#     return 'Error', 500
+
