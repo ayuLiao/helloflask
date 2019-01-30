@@ -71,13 +71,15 @@ def forge():
     db.session.commit()
     click.echo('Fake Data Generate Done.')
 
-
+@app.context_processor
+def inject_user(): #函数名随意
+    user = User.query.first()
+    return {'user':user}
 
 @app.route('/')
 def index():
-    user = User.query.first() #读取用户数据
     movies = Movie.query.all() # 读取所有电影
-    return render_template('index.html', user=user, movies=movies)
+    return render_template('index.html', movies=movies)
 
 
 @app.route('/user/<name>')
@@ -91,9 +93,11 @@ def test_url_for():
     print(url_for('test_url_for', num=2)) # 输出： /test?num=2
     return 'Test Page'
 
-@app.route('/404')
-def not_found():
-    abort(404)
+
+@app.errorhandler(404)  # 传入要处理的错误代码
+def not_found(e): # 接受异常对象作为参数
+    # 返回模板和状态码
+    return render_template('404.html'), 404
 
 # @app.errorhandler(Exception)
 # def all_exception_handler(e):
